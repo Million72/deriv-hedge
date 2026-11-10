@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Hedge Bot">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <style>
@@ -730,6 +731,7 @@ const state = {
   wakeLock: null, lastAnyTick: 0
 };
 let pubRetry = 0, pubTimer = null, renderTimer = null;
+const pocReq = new Map();
 const rows = {};
 
 /* ---------- screen (batched: one redraw per frame, after trades are sent) ---------- */
@@ -1093,7 +1095,7 @@ function settleLeg(leg, poc) {
   if (!Number.isFinite(pnl)) pnl = Number(poc.sell_price || 0) - Number(poc.buy_price || leg.stake);
   pnl = round2(pnl);
   leg.settled = true;
-  state.byContract.delete(leg.contractId);
+  state.byContract.delete(String(leg.contractId));
   state.profit = round2(state.profit + pnl);       // money moves the moment a contract ends
   updateStats();
   updateBalance();
@@ -1316,7 +1318,9 @@ function handleTradeMessage(d) {
   }
   if (d.error) {
     const text = d.error.message || "The trading API returned an error.";
-    const leg = state.pendingByReq.get(d.req_id ?? d.echo_req?.req_id);
+    const rid = d.req_id ?? d.echo_req?.req_id;
+    if (pocReq.has(rid)) { showError("Could not track a contract result: " + text); return; }
+    const leg = state.pendingByReq.get(rid);
     if (leg) { legGone(leg, text, /balance|insufficient|stake|maximum/i.test(text)); return; }
     showMessage(text, "error");
     return;
@@ -1326,7 +1330,8 @@ function handleTradeMessage(d) {
     if (!leg) return;
     state.pendingByReq.delete(d.req_id);
     leg.contractId = d.buy.contract_id;
-    state.byContract.set(leg.contractId, leg);
+    leg.boughtAt = Date.now();
+    state.byContract.set(String(leg.contractId), leg);
     const pr = state.pair;
     if (pr && pr.id === leg.pairId && !pr.counted) {
       pr.counted = true;
@@ -1337,14 +1342,19 @@ function handleTradeMessage(d) {
     }
     const after = Number(d.buy.balance_after);
     if (Number.isFinite(after)) { state.balance = after; updateBalance(); }
-    sendTo(state.tradeSocket, { proposal_open_contract: 1, contract_id: leg.contractId, subscribe: 1 });
+    state.reqSeq += 1;
+    const pid = 200000 + state.reqSeq;
+    pocReq.set(pid, leg);
+    sendTo(state.tradeSocket, { proposal_open_contract: 1, contract_id: leg.contractId, subscribe: 1, req_id: pid });
     return;
   }
   if (d.msg_type === "proposal_open_contract" && d.proposal_open_contract) {
     const poc = d.proposal_open_contract;
-    const leg = state.byContract.get(poc.contract_id);
+    const leg = state.byContract.get(String(poc.contract_id));
     if (!leg || leg.settled) return;
-    if (!(poc.is_sold === 1 || poc.status === "won" || poc.status === "lost")) return;
+    const done = poc.is_sold == 1 || poc.is_sold === true || poc.is_expired == 1 ||
+      poc.status === "won" || poc.status === "lost" || poc.status === "sold";
+    if (!done) return;
     if (d.subscription?.id) sendTo(state.tradeSocket, { forget: d.subscription.id });
     settleLeg(leg, poc);
   }
@@ -1455,6 +1465,12 @@ setInterval(() => {
     showMessage("A contract result did not arrive in time. Check your Deriv account. Scanning again.", "error");
     if (state.running) tryHedge();
   }
+  if (state.tradingReady) {
+    state.byContract.forEach((t) => {
+      if (!t.settled && t.contractId && Date.now() - (t.boughtAt || 0) > 3000)
+        sendTo(state.tradeSocket, { proposal_open_contract: 1, contract_id: t.contractId });
+    });
+  }
   if (!state.running || !state.tradingReady) return;
   if (state.lastAnyTick && Date.now() - state.lastAnyTick > 7000) {
     state.lastAnyTick = Date.now();
@@ -1498,6 +1514,37 @@ updateSwitch();
 showMessage("Paste your API token and App ID, then press Connect Account. The trend scan runs without logging in.");
 connectPublic();
 
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+(function () {
+  var btn = document.getElementById("installBtn");
+  var hint = document.getElementById("installHint");
+  var deferred = null;
+  var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (!btn || standalone) return;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferred = e;
+    btn.hidden = false;
+  });
+  btn.addEventListener("click", async function () {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch (_) {}
+    deferred = null;
+    btn.hidden = true;
+  });
+  window.addEventListener("appinstalled", function () { btn.hidden = true; if (hint) hint.hidden = true; });
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent) && hint) {
+    hint.textContent = "To install: tap Share, then Add to Home Screen.";
+    hint.hidden = false;
+  }
+})();
 </script>
 </body>
 </html>
