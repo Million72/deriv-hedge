@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deriv Ups &amp; Downs Hedge Bot</title>
+    <title>Deriv Rise &amp; Fall Bot</title>
   <meta name="theme-color" content="#080d18">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Hedge Bot">
+  <meta name="apple-mobile-web-app-title" content="Rise & Fall">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
@@ -614,8 +614,8 @@ footer p {
   <div class="app">
     <header class="topbar">
       <div>
-        <h1>DERIV <span>UPS &amp; DOWNS</span></h1>
-        <p>Only Ups + Only Downs hedging</p>
+        <h1>DERIV <span>RISE &amp; FALL</span></h1>
+        <p>Streak strategy (1 - 5 ticks)</p>
       </div>
       <div id="status" class="status disconnected"><span class="status-dot"></span> Disconnected</div>
     </header>
@@ -647,7 +647,7 @@ footer p {
           <label>Trend window (ticks, 5 - 200)<input id="trendWindow" type="number" min="5" max="200" step="5" value="30"></label>
           <label>Minimum trend strength (0 - 1)<input id="minTrend" type="number" min="0" max="1" step="0.05" value="0"></label>
           <label>Streak ticks needed (2 - 4)<input id="streakTicks" type="number" min="2" max="4" step="1" value="3"></label>
-          <label>Ticks per contract (2 - 5)<input id="ticksPer" type="number" min="2" max="5" step="1" value="2"></label>
+          <label>Ticks per contract (1 - 5)<input id="ticksPer" type="number" min="1" max="5" step="1" value="2"></label>
         </div>
       </section>
 
@@ -658,13 +658,13 @@ footer p {
 
       <section class="stats-grid">
         <div class="stat-card"><span>Last Pick</span><strong id="lastDigit">—</strong><small id="lastDigitType">Waiting for a trend</small></div>
-        <div class="stat-card"><span>Pairs</span><strong id="totalTrades">0</strong><small>Trades placed</small></div>
+        <div class="stat-card"><span>Trades</span><strong id="totalTrades">0</strong><small>Total trades placed</small></div>
         <div class="stat-card"><span>Wins</span><strong id="wins">0</strong><small>Winning trades</small></div>
         <div class="stat-card"><span>Net Profit/Loss</span><strong id="profitLoss">$0.00</strong><small>Session result</small></div>
       </section>
 
       <section class="panel">
-        <div class="section-heading"><h3>Trading Configuration</h3><span class="small">Only Ups + Only Downs</span></div>
+        <div class="section-heading"><h3>Trading Configuration</h3><span class="small">Rise &amp; Fall</span></div>
         <div class="form-grid">
           <label>Initial Stake (USD)<input id="stake" type="number" min="0.35" step="0.01" value="0.35"></label>
           <label>Martingale Multiplier<input id="multiplier" type="number" min="1" step="0.05" value="2"></label>
@@ -678,33 +678,30 @@ footer p {
           <button id="startBtn" class="btn primary" type="button" disabled>Start Bot</button>
           <button id="stopBtn" class="btn warning" type="button" disabled>Stop Bot</button>
         </div>
-        <p class="small">The bot measures how strongly every selected market is trending (net move divided by total movement over the window: 0 is sideways, 1 is a straight line). When the best market reaches your minimum, it buys one Only Ups and one Only Downs on it at the same moment, 2 ticks by default. A pair wins when one side pays more than both stakes cost. If the market is choppy, both can lose, and then you lose both stakes. When the pair ends, the bot scans again. One pair at a time. Martingale on a losing pair can rapidly increase risk. Test on a demo account first.</p>
+        <p class="small">The bot measures how strongly every selected market is trending. When the best market reaches your minimum, it buys a single <b>Rise (CALL)</b> or <b>Fall (PUT)</b> contract matching the direction of the momentum streak. If the market is choppy, it waits. Martingale multiplies your stake after a loss. Test on a demo account first.</p>
       </section>
 
       <section class="panel">
         <div class="section-heading"><h3>Trade History</h3><button id="clearHistoryBtn" class="btn small-btn secondary" type="button">Clear History</button></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Time</th><th>Contract</th><th>Stake (both)</th><th>Result</th><th>P/L</th></tr></thead>
+          <thead><tr><th>Time</th><th>Contract</th><th>Stake</th><th>Result</th><th>P/L</th></tr></thead>
           <tbody id="tradeHistory"></tbody>
         </table></div>
       </section>
     </main>
 
-    <footer><p>Deriv Ups &amp; Downs Hedge Bot · Use at your own risk.</p></footer>
+    <footer><p>Deriv Rise &amp; Fall Bot · Use at your own risk.</p></footer>
   </div>
 <script>
 "use strict";
 
 /*
- * DERIV ONLY UPS + ONLY DOWNS HEDGING BOT - multi-market trend picker
+ * DERIV RISE & FALL BOT - streak strategy
  *
- * Watches every selected market and measures how strongly it is trending
- * (efficiency ratio over a window: net move / total path, 0 to 1).
- * When the best market reaches your minimum trend strength, it buys ONE
- * Only Ups and ONE Only Downs on that market at the same moment (default
- * 2 ticks, the minimum). When both contracts have ended it scans again.
- * One pair at a time. Stops only on your Stop, take profit, stop loss or
- * win target. Token stays in memory only. Use a DEMO account first.
+ * Watches every selected market and measures how strongly it is trending.
+ * When a streak of consecutive ticks is detected, it buys a single
+ * Rise (CALL) or Fall (PUT) matching the direction of the streak.
+ * Duration can be configured from 1 to 5 ticks.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -733,8 +730,6 @@ const state = {
 };
 let pubRetry = 0, pubTimer = null, renderTimer = null;
 const pocReq = new Map();
-const TYPES = [["ONLYUPS", "ONLYDOWNS"], ["RUNHIGH", "RUNLOW"]];
-let typeSet = 0;   // switches to 1 automatically if Deriv rejects the first names
 const rows = {};
 
 /* ---------- screen (batched: one redraw per frame, after trades are sent) ---------- */
@@ -790,7 +785,7 @@ function minTrend() {
 }
 function ticksPer() {
   const v = parseInt($("ticksPer").value, 10);
-  return Math.min(5, Math.max(2, Number.isFinite(v) ? v : 2));
+  return Math.min(5, Math.max(1, Number.isFinite(v) ? v : 2));
 }
 function streakNeeded() {
   const v = parseInt($("streakTicks").value, 10);
@@ -885,7 +880,7 @@ function drawBalance() {
 }
 function historyRow(t) {
   const r = document.createElement("tr");
-  [t.time, `TREND · ${t.symbol} · ${t.dur}t`, money(t.stake), t.result, money(t.pnl)].forEach((v, i) => {
+  [t.time, `RISE/FALL · ${t.symbol} · ${t.dur}t`, money(t.stake), t.result, money(t.pnl)].forEach((v, i) => {
     const c = document.createElement("td");
     c.textContent = v;
     if (i >= 3) c.className = t.pnl >= 0 ? "win" : "loss";
@@ -998,7 +993,7 @@ function startBot() {
 }
 const stakeFor = (cfg) => (cfg.martingale ? round2(cfg.stake * Math.pow(cfg.multiplier, state.step)) : round2(cfg.stake));
 
-/* Martingale on the PAIR: a profitable pair resets, a losing pair multiplies the stake (up to the max steps). */
+/* Martingale on the trade: a profitable trade resets, a losing trade multiplies the stake (up to the max steps). */
 function nextStep(step, won, c) { return won || !c || !c.martingale || step >= c.maxSteps ? 0 : step + 1; }
 function recomputeStep() {
   const c = getConfig();
@@ -1029,7 +1024,7 @@ function checkLimits() {
   return false;
 }
 
-/* ---------- the hedge: Only Ups + Only Downs at the same moment ---------- */
+/* ---------- the trade: Rise (CALL) or Fall (PUT) ---------- */
 function sendTo(socket, payload) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return false;
   socket.send(JSON.stringify(payload));
@@ -1067,30 +1062,26 @@ function tryHedge() {
   }
   state.pairSeq += 1;
   const pair = { id: state.pairSeq, sym: pick.sym, stake, dur: ticksPer(), legs: [], expected: 0, settled: 0, pnl: 0, at: Date.now() };
-  const leg = placeLeg(pair, pick.dir === "UP" ? TYPES[typeSet][0] : TYPES[typeSet][1]);
+  
+  // RISE = CALL, FALL = PUT
+  const contractType = pick.dir === "UP" ? "CALL" : "PUT";
+  const leg = placeLeg(pair, contractType);
+  
   pair.expected = leg ? 1 : 0;
   if (!pair.expected) { showMessage("Account session is not open. Reconnecting…", "error"); return; }
   state.pair = pair;
   updateBalance();
-  showMessage(`${NAME[pick.sym]} is trending ${pick.dir === "UP" ? "up" : pick.dir === "DOWN" ? "down" : "sideways"} (${pick.er.toFixed(2)}). ${pick.dir === "UP" ? "Only Ups" : "Only Downs"} only (no hedge), ${pair.dur} ticks, ${money(stake)}${state.step ? ` · martingale step ${state.step}` : ""}.`);
+  showMessage(`${NAME[pick.sym]} is trending ${pick.dir === "UP" ? "up" : pick.dir === "DOWN" ? "down" : "sideways"} (${pick.er.toFixed(2)}). ${pick.dir === "UP" ? "RISE (CALL)" : "FALL (PUT)"}, ${pair.dur} ticks, ${money(stake)}${state.step ? ` · martingale step ${state.step}` : ""}.`);
   ui(() => { $("lastDigit").textContent = pick.dir === "UP" ? "↑" : pick.dir === "DOWN" ? "↓" : "→"; $("lastDigitType").textContent = NAME[pick.sym]; });
 }
 function legGone(leg, text, moneyIssue) {
   state.pendingByReq.delete(leg.reqId);
   const pair = state.pair;
-  const kind = (leg.kind === "ONLYUPS" || leg.kind === "RUNHIGH") ? "Only Ups" : "Only Downs";
-  const typeErr = TYPES[0].includes(leg.kind) && /contract.?type|invalid|unknown|unrecogni|not.*(valid|offered|available)/i.test(text);
-  if (typeErr && typeSet === 0) typeSet = 1;
+  const kind = leg.kind === "CALL" ? "Rise (CALL)" : "Fall (PUT)";
   showError(`${kind} on ${NAME[leg.symbol]} was rejected by Deriv: ${text}`);
   if (!pair || pair.id !== leg.pairId) return;
   pair.expected -= 1;
   if (moneyIssue) restartMartingale();
-  if (pair.expected <= 0 && !pair.counted && typeErr) {   // wrong contract names: retry with the other set
-    state.pair = null;
-    state.cooldownUntil = Date.now() + 1000;
-    showMessage("Deriv did not accept the contract names. Switching to RUNHIGH / RUNLOW and retrying…", "error");
-    return;
-  }
   if (pair.expected <= 0 && !pair.counted) {         // nothing was bought on this market
     state.pair = null;
     state.rejectStreak += 1;
