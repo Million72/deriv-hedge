@@ -732,6 +732,8 @@ const state = {
 };
 let pubRetry = 0, pubTimer = null, renderTimer = null;
 const pocReq = new Map();
+const TYPES = [["ONLYUPS", "ONLYDOWNS"], ["RUNHIGH", "RUNLOW"]];
+let typeSet = 0;   // switches to 1 automatically if Deriv rejects the first names
 const rows = {};
 
 /* ---------- screen (batched: one redraw per frame, after trades are sent) ---------- */
@@ -1042,8 +1044,8 @@ function tryHedge() {
   }
   state.pairSeq += 1;
   const pair = { id: state.pairSeq, sym: pick.sym, stake, dur: ticksPer(), legs: [], expected: 0, settled: 0, pnl: 0, at: Date.now() };
-  const up = placeLeg(pair, "ONLYUPS");
-  const down = placeLeg(pair, "ONLYDOWNS");
+  const up = placeLeg(pair, TYPES[typeSet][0]);
+  const down = placeLeg(pair, TYPES[typeSet][1]);
   pair.expected = (up ? 1 : 0) + (down ? 1 : 0);
   if (!pair.expected) { showMessage("Account session is not open. Reconnecting…", "error"); return; }
   state.pair = pair;
@@ -1054,11 +1056,19 @@ function tryHedge() {
 function legGone(leg, text, moneyIssue) {
   state.pendingByReq.delete(leg.reqId);
   const pair = state.pair;
-  const kind = leg.kind === "ONLYUPS" ? "Only Ups" : "Only Downs";
+  const kind = (leg.kind === "ONLYUPS" || leg.kind === "RUNHIGH") ? "Only Ups" : "Only Downs";
+  const typeErr = TYPES[0].includes(leg.kind) && /contract.?type|invalid|unknown|unrecogni|not.*(valid|offered|available)/i.test(text);
+  if (typeErr && typeSet === 0) typeSet = 1;
   showError(`${kind} on ${NAME[leg.symbol]} was rejected by Deriv: ${text}`);
   if (!pair || pair.id !== leg.pairId) return;
   pair.expected -= 1;
   if (moneyIssue) restartMartingale();
+  if (pair.expected <= 0 && !pair.counted && typeErr) {   // wrong contract names: retry with the other set
+    state.pair = null;
+    state.cooldownUntil = Date.now() + 1000;
+    showMessage("Deriv did not accept the contract names. Switching to RUNHIGH / RUNLOW and retrying…", "error");
+    return;
+  }
   if (pair.expected <= 0 && !pair.counted) {         // nothing was bought on this market
     state.pair = null;
     state.rejectStreak += 1;
