@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deriv Ups &amp; Downs Hedge Bot</title>
+  <meta name="theme-color" content="#080d18">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Hedge Bot">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <style>
+:root {
+  --bg: #080d18;
+  --panel: #111a2b;
+  --panel-light: #18243a;
+  --border: #26344b;
+  --text: #f2f5fb;
+  --muted: #91a0b8;
+  --green: #20d99a;
+  --red: #ff5573;
+  --blue: #538bff;
+  --yellow: #ffc857;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.app {
+  width: 100%;
+  max-width: 1100px;
+  margin: auto;
+  padding: 22px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 1px;
+}
+
+.topbar h1 span {
+  color: var(--green);
+}
+
+.topbar p,
+.muted,
+.small {
+  color: var(--muted);
+}
+
+.topbar p {
+  margin: 5px 0 0;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.status-dot,
+.pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.status.connected .status-dot {
+  background: var(--green);
+  box-shadow: 0 0 10px #20d99a77;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 0 20px;
+}
+
+.hero h2 {
+  margin: 4px 0;
+  font-size: clamp(22px, 4vw, 30px);
+}
+
+.hero p {
+  margin-bottom: 0;
+}
+
+.eyebrow {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pulse {
+  background: var(--green);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 #20d99a66; }
+  50% { box-shadow: 0 0 0 7px #20d99a00; }
+}
+
+.message {
+  padding: 12px 14px;
+  margin: 0 0 18px;
+  background: #18243a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: #d6e2f7;
+  overflow-wrap: anywhere;
+}
+
+.message.success {
+  border-color: #20d99a66;
+  color: var(--green);
+}
+
+.message.error {
+  border-color: #ff557366;
+  color: var(--red);
+}
+
+.panel {
+  padding: 20px;
+  margin-bottom: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.section-heading .small {
+  font-size: 11px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #d8e0ee;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 11px 12px;
+  color: var(--text);
+  background: #0b1220;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #538bff22;
+}
+
+input::placeholder {
+  color: #64748b;
+}
+
+.balance-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--panel-light);
+  border-radius: 10px;
+}
+
+.balance-box span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.balance-box strong {
+  font-size: 23px;
+  color: var(--green);
+}
+
+.balance-box #currency {
+  margin-left: auto;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  min-width: 0;
+  padding: 17px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+}
+
+.stat-card span,
+.stat-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.stat-card strong {
+  display: block;
+  margin: 8px 0;
+  font-size: clamp(20px, 3vw, 27px);
+  overflow-wrap: anywhere;
+}
+
+.stat-card small {
+  line-height: 1.5;
+}
+
+#profitLoss.positive {
+  color: var(--green);
+}
+
+#profitLoss.negative {
+  color: var(--red);
+}
+
+.checkbox-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  font-size: 12px;
+}
+
+.checkbox-row input {
+  width: 17px;
+  min-height: 17px;
+  height: 17px;
+  accent-color: var(--green);
+}
+
+.sequence-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.sequence-box h4 {
+  margin: 0 0 4px;
+}
+
+.sequence-box p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.sequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.sequence b {
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.even {
+  color: var(--green);
+  background: #20d99a18;
+  border: 1px solid #20d99a55;
+}
+
+.odd {
+  color: #ff9aaf;
+  background: #ff557318;
+  border: 1px solid #ff557355;
+}
+
+.sequence b.active {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0 14px;
+}
+
+.btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 43px;
+  padding: 11px 17px;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn.primary {
+  color: #06140f;
+  background: var(--green);
+}
+
+.btn.secondary {
+  background: #202e45;
+  border-color: #34445e;
+}
+
+.btn.warning {
+  color: #fff;
+  background: #b8324d;
+}
+
+.small-btn {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 11px;
+}
+
+.small {
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.tick-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  min-height: 45px;
+}
+
+.tick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  min-height: 53px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0b1220;
+}
+
+.tick-item strong {
+  font-size: 18px;
+}
+
+.tick-item small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.tick-item.even-tick strong {
+  color: var(--green);
+}
+
+.tick-item.odd-tick strong {
+  color: #ff8197;
+}
+
+.empty-state {
+  padding: 14px 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th,
+td {
+  padding: 13px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+td {
+  color: #e0e8f5;
+}
+
+td.win {
+  color: var(--green);
+}
+
+td.loss {
+  color: var(--red);
+}
+
+footer {
+  padding: 12px 0 25px;
+  color: var(--muted);
+  text-align: center;
+}
+
+footer p {
+  margin: 5px 0;
+}
+
+@media (max-width: 650px) {
+  .app {
+    padding: 14px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .topbar h1 {
+    font-size: 18px;
+  }
+
+  .status {
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+
+  .hero {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-top: 22px;
+  }
+
+  .panel {
+    padding: 15px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .stat-card {
+    padding: 13px;
+  }
+
+  .balance-box {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .balance-box #currency {
+    margin-left: 0;
+  }
+
+  .button-row {
+    flex-direction: column;
+  }
+
+  .button-row .btn {
+    width: 100%;
+  }
+
+  .sequence-box {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{flex-direction:row;align-items:center;gap:8px;padding:9px 11px;background:#0b1220;border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer}
+.chip input{width:16px;min-height:16px;height:16px;accent-color:var(--green)}
+.scan-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.scan-row.active span{color:var(--green);font-weight:700}
+.badge{padding:3px 9px;border-radius:12px;font-size:10px;font-weight:800;white-space:nowrap}
+.badge.ok{color:var(--green);background:#20d99a18;border:1px solid #20d99a55}
+.badge.no{color:var(--muted);border:1px solid var(--border)}
+.bars{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.bar{padding:9px 0;text-align:center;border-radius:8px;background:#0b1220;border:1px solid var(--border);font-size:10px;color:var(--muted)}
+.bar strong{display:block;font-size:16px;color:var(--text)}
+.bar.low strong{color:#ff8197}
+.bar.high strong{color:var(--green)}
+.bar.good{border-color:#20d99a99}
+.sub{margin:14px 0 0;font-size:12px;color:var(--muted)}
+.real{color:var(--red)!important;font-weight:700}
+
+  
+.digits{flex:1;text-align:center;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.bars{grid-template-columns:repeat(5,1fr)}
+
+[hidden]{display:none!important}
+.install-row{display:flex;align-items:center;gap:10px;margin:12px 0 0}
+.acct-switch{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.seg-btn{min-height:36px;padding:7px 18px;border-radius:8px;border:1px solid var(--border);background:#0b1220;color:var(--text);font-weight:700;cursor:pointer}
+.seg-btn.on{background:var(--green);color:#06140f;border-color:var(--green)}
+.seg-btn.real.on{background:var(--red);color:#fff;border-color:var(--red)}
+.seg-btn:disabled{opacity:.4;cursor:not-allowed}
+</style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <h1>DERIV <span>UPS &amp; DOWNS</span></h1>
+        <p>Only Ups + Only Downs hedging</p>
+      </div>
+      <div id="status" class="status disconnected"><span class="status-dot"></span> Disconnected</div>
+    </header>
+    <div class="install-row"><button id="installBtn" class="btn small-btn secondary" type="button" hidden>Install app</button><span id="installHint" class="small" hidden></span></div>
+
+    <main>
+      <div id="message" class="message">Loading…</div>
+
+      <section class="panel">
+        <div class="section-heading"><h3>Account Connection</h3><span class="small">Deriv API</span></div>
+        <div class="form-grid">
+          <label>API Token<input id="apiToken" type="password" placeholder="Paste your Deriv API token" autocomplete="off"></label>
+          <label>App ID<input id="appId" type="text" inputmode="numeric" placeholder="Your Deriv App ID" autocomplete="off"></label>
+          <label>Account<select id="account"><option value="">Connect to load accounts</option></select></label>
+          <label>&nbsp;<button id="connectBtn" class="btn secondary" type="button">Connect Account</button></label>
+        </div>
+        <div class="acct-switch"><span class="small">Account</span><button id="segDemo" class="seg-btn" type="button" disabled>DEMO</button><button id="segReal" class="seg-btn real" type="button" disabled>REAL</button></div>
+        <p id="switchHint" class="small"></p>
+        <div class="balance-box">
+          <span>Account Balance</span><strong id="balance">—</strong><span id="currency">Not connected</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading"><h3>Markets to Analyse</h3><span class="small">Tick the markets you want</span></div>
+        <div id="marketList" class="chips"></div>
+        <div class="form-grid">
+          <label>Trend window (ticks, 5 - 200)<input id="trendWindow" type="number" min="5" max="200" step="5" value="30"></label>
+          <label>Minimum trend strength (0 - 1)<input id="minTrend" type="number" min="0" max="1" step="0.05" value="0.3"></label>
+          <label>Ticks per contract (2 - 5)<input id="ticksPer" type="number" min="2" max="5" step="1" value="2"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading"><h3>Trend Strength</h3><span class="small">Direction and strength per market</span></div>
+        <div id="watch"></div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card"><span>Last Pick</span><strong id="lastDigit">—</strong><small id="lastDigitType">Waiting for a trend</small></div>
+        <div class="stat-card"><span>Pairs</span><strong id="totalTrades">0</strong><small>Up + Down pairs bought</small></div>
+        <div class="stat-card"><span>Wins</span><strong id="wins">0</strong><small>Profitable pairs</small></div>
+        <div class="stat-card"><span>Net Profit/Loss</span><strong id="profitLoss">$0.00</strong><small>Session result</small></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading"><h3>Trading Configuration</h3><span class="small">Only Ups + Only Downs</span></div>
+        <div class="form-grid">
+          <label>Initial Stake (USD)<input id="stake" type="number" min="0.35" step="0.01" value="0.35"></label>
+          <label>Martingale Multiplier<input id="multiplier" type="number" min="1" step="0.05" value="2"></label>
+          <label>Maximum Martingale Steps<input id="maxSteps" type="number" min="0" max="20" step="1" value="3"></label>
+          <label>Take Profit (USD)<input id="takeProfit" type="number" min="0.01" step="0.01" value="5.00"></label>
+          <label>Stop Loss (USD)<input id="stopLoss" type="number" min="0.01" step="0.01" value="5.00"></label>
+          <label>Target Wins (0 = no limit)<input id="targetWins" type="number" min="0" step="1" value="0"></label>
+        </div>
+        <label class="checkbox-row"><input id="martingaleEnabled" type="checkbox" checked><span>Enable Martingale after a loss</span></label>
+        <div class="button-row">
+          <button id="startBtn" class="btn primary" type="button" disabled>Start Bot</button>
+          <button id="stopBtn" class="btn warning" type="button" disabled>Stop Bot</button>
+        </div>
+        <p class="small">The bot measures how strongly every selected market is trending (net move divided by total movement over the window: 0 is sideways, 1 is a straight line). When the best market reaches your minimum, it buys one Only Ups and one Only Downs on it at the same moment, 2 ticks by default. A pair wins when one side pays more than both stakes cost. If the market is choppy, both can lose, and then you lose both stakes. When the pair ends, the bot scans again. One pair at a time. Martingale on a losing pair can rapidly increase risk. Test on a demo account first.</p>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading"><h3>Trade History</h3><button id="clearHistoryBtn" class="btn small-btn secondary" type="button">Clear History</button></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>Contract</th><th>Stake (both)</th><th>Result</th><th>P/L</th></tr></thead>
+          <tbody id="tradeHistory"></tbody>
+        </table></div>
+      </section>
+    </main>
+
+    <footer><p>Deriv Ups &amp; Downs Hedge Bot · Use at your own risk.</p></footer>
+  </div>
+<script>
+"use strict";
+
+/*
+ * DERIV ONLY UPS + ONLY DOWNS HEDGING BOT - multi-market trend picker
+ *
+ * Watches every selected market and measures how strongly it is trending
+ * (efficiency ratio over a window: net move / total path, 0 to 1).
+ * When the best market reaches your minimum trend strength, it buys ONE
+ * Only Ups and ONE Only Downs on that market at the same moment (default
+ * 2 ticks, the minimum). When both contracts have ended it scans again.
+ * One pair at a time. Stops only on your Stop, take profit, stop loss or
+ * win target. Token stays in memory only. Use a DEMO account first.
+ */
+
+const $ = (id) => document.getElementById(id);
+const REST_BASE = "https://api.derivws.com";
+const WS_PUBLIC = "wss://api.derivws.com/trading/v1/options/ws/public";
+const MARKETS = [
+  ["R_10", "Volatility 10"], ["R_25", "Volatility 25"], ["R_50", "Volatility 50"],
+  ["R_75", "Volatility 75"], ["R_100", "Volatility 100"],
+  ["1HZ10V", "Volatility 10 (1s)"], ["1HZ15V", "Volatility 15 (1s)"],
+  ["1HZ25V", "Volatility 25 (1s)"], ["1HZ30V", "Volatility 30 (1s)"],
+  ["1HZ50V", "Volatility 50 (1s)"], ["1HZ75V", "Volatility 75 (1s)"],
+  ["1HZ90V", "Volatility 90 (1s)"], ["1HZ100V", "Volatility 100 (1s)"]
+];
+const NAME = Object.fromEntries(MARKETS);
+
+const state = {
+  pub: null, pubReady: false, tradeSocket: null, tradingReady: false,
+  accounts: [], account: null, token: "", appId: "", creds: {},
+  selected: MARKETS.map((m) => m[0]), mk: {}, histReq: new Map(),
+  running: false, pair: null, pairSeq: 0, cooldownUntil: 0,
+  trades: 0, wins: 0, profit: 0, history: [], currency: "USD", balance: null,
+  step: 0, stepBase: 0, tradeLog: [], reqSeq: 0,
+  pendingByReq: new Map(), byContract: new Map(),
+  lastCfg: null, reconnectTimer: null, reconnectCount: 0, connecting: false,
+  wakeLock: null, lastAnyTick: 0
+};
+let pubRetry = 0, pubTimer = null, renderTimer = null;
+const rows = {};
+
+/* ---------- screen (batched: one redraw per frame, after trades are sent) ---------- */
+let uiQueued = false, uiMsg = null;
+const uiTasks = new Set();
+function paintMessage(text, type) {
+  const el = $("message");
+  const cls = "message" + (type ? " " + type : "");
+  if (el.textContent !== text) el.textContent = text;
+  if (el.className !== cls) el.className = cls;
+}
+function flushUI() {
+  uiQueued = false;
+  const tasks = [...uiTasks];
+  uiTasks.clear();
+  tasks.forEach((f) => f());
+  if (uiMsg) { const m = uiMsg; uiMsg = null; paintMessage(m.text, m.type); }
+}
+function ui(fn) {
+  uiTasks.add(fn);
+  if (uiQueued) return;
+  uiQueued = true;
+  (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f) => setTimeout(f, 0))(flushUI);
+}
+function showMessage(text, type = "") { uiMsg = { text, type }; ui(() => {}); }
+function setStatus(on) {
+  state.pubReady = on;
+  const el = $("status");
+  el.className = on ? "status connected" : "status disconnected";
+  el.lastChild.textContent = on ? " Connected" : " Disconnected";
+}
+function refreshButtons() {
+  $("startBtn").disabled = state.running || !state.tradingReady || !state.selected.length;
+  $("stopBtn").disabled = !state.running;
+}
+const fmtCache = {};
+function money(a, c = state.currency) {
+  try {
+    const f = fmtCache[c] || (fmtCache[c] = new Intl.NumberFormat("en-US", { style: "currency", currency: c }));
+    return f.format(a);
+  } catch (_) { return Number(a).toFixed(2) + " " + c; }
+}
+const round2 = (n) => Math.round(n * 100) / 100;
+
+/* ---------- settings + market data ---------- */
+function windowN() {
+  const v = parseInt($("trendWindow").value, 10);
+  return Math.min(200, Math.max(5, Number.isFinite(v) ? v : 30));
+}
+function minTrend() {
+  const v = parseFloat($("minTrend").value);
+  return Math.min(1, Math.max(0, Number.isFinite(v) ? v : 0.3));
+}
+function ticksPer() {
+  const v = parseInt($("ticksPer").value, 10);
+  return Math.min(5, Math.max(2, Number.isFinite(v) ? v : 2));
+}
+function mkOf(sym) {
+  if (!state.mk[sym]) state.mk[sym] = { prices: [], last: 0, hist: false, asked: false, refreshing: false, pending: [] };
+  return state.mk[sym];
+}
+function addPrice(m, p) {
+  m.prices.push(p);
+  const keep = windowN() + 1;
+  while (m.prices.length > keep) m.prices.shift();
+}
+/* Trend strength = |net move| / total path over the window (0 = sideways, 1 = straight line). */
+function trendOf(sym) {
+  const m = state.mk[sym];
+  if (!m || !m.hist || m.prices.length < Math.min(windowN() + 1, 11)) return null;
+  const p = m.prices;
+  let path = 0;
+  for (let i = 1; i < p.length; i++) path += Math.abs(p[i] - p[i - 1]);
+  const net = p[p.length - 1] - p[0];
+  return { er: path > 0 ? Math.abs(net) / path : 0, dir: net > 0 ? "UP" : net < 0 ? "DOWN" : "FLAT" };
+}
+function bestTrend() {
+  let pick = null;
+  state.selected.forEach((sym) => {
+    const t = trendOf(sym);
+    if (!t || t.er < minTrend()) return;
+    if (!pick || t.er > pick.er) pick = { sym, ...t };
+  });
+  return pick;
+}
+
+/* ---------- stats + balance ---------- */
+function displayBalance() {
+  if (state.balance === null) return null;
+  let unconfirmed = 0;
+  state.pendingByReq.forEach((t) => { unconfirmed += t.stake; });
+  return round2(state.balance - unconfirmed);
+}
+const updateStats = () => ui(drawStats);
+function drawStats() {
+  $("totalTrades").textContent = String(state.trades);
+  $("wins").textContent = String(state.wins);
+  const el = $("profitLoss");
+  const profit = round2(state.profit);
+  el.textContent = money(profit);
+  el.classList.toggle("positive", profit > 0);
+  el.classList.toggle("negative", profit < 0);
+}
+const updateBalance = () => ui(drawBalance);
+function drawBalance() {
+  const b = displayBalance();
+  $("balance").textContent = b === null ? "—" : money(b);
+  $("currency").classList.toggle("real", !!(state.account && state.account.account_type === "real"));
+  $("currency").textContent = state.account
+    ? `${state.account.account_type.toUpperCase()} · ${state.account.account_id} · ${state.currency}`
+    : "Not connected";
+}
+function historyRow(t) {
+  const r = document.createElement("tr");
+  [t.time, `UP+DOWN · ${t.symbol} · ${t.dur}t`, money(t.stake), t.result, money(t.pnl)].forEach((v, i) => {
+    const c = document.createElement("td");
+    c.textContent = v;
+    if (i >= 3) c.className = t.pnl >= 0 ? "win" : "loss";
+    r.appendChild(c);
+  });
+  return r;
+}
+function addHistoryRow(t) {
+  const body = $("tradeHistory");
+  if (state.history.length === 1) body.replaceChildren();
+  body.insertBefore(historyRow(t), body.firstChild);
+  while (body.children.length > 40) body.removeChild(body.lastChild);
+}
+function renderHistory() {
+  const body = $("tradeHistory");
+  body.replaceChildren();
+  if (!state.history.length) {
+    const r = document.createElement("tr");
+    const c = document.createElement("td");
+    c.colSpan = 5; c.className = "empty-state"; c.textContent = "No trades yet.";
+    r.appendChild(c); body.appendChild(r);
+    return;
+  }
+  state.history.slice(-40).reverse().forEach((t) => body.appendChild(historyRow(t)));
+}
+
+/* ---------- watch list (rows are built once, then only text is updated) ---------- */
+function buildWatch() {
+  const box = $("watch");
+  box.replaceChildren();
+  Object.keys(rows).forEach((k) => delete rows[k]);
+  state.selected.forEach((sym) => {
+    const row = document.createElement("div");
+    row.className = "scan-row";
+    const name = document.createElement("span");
+    name.textContent = NAME[sym];
+    const info = document.createElement("span");
+    info.className = "digits";
+    const badge = document.createElement("b");
+    badge.className = "badge no";
+    badge.textContent = "…";
+    row.append(name, info, badge);
+    box.appendChild(row);
+    rows[sym] = { info, badge, shown: "", flag: "" };
+  });
+  if (!state.selected.length) box.textContent = "Select at least one market.";
+}
+function scheduleRender() {
+  if (renderTimer) return;
+  renderTimer = setTimeout(() => { renderTimer = null; renderWatch(); }, 700);
+}
+function renderWatch() {
+  const pick = bestTrend();
+  state.selected.forEach((sym) => {
+    const r = rows[sym];
+    if (!r) return;
+    const t = trendOf(sym);
+    const m = mkOf(sym);
+    const text = t ? `${t.dir === "UP" ? "↑" : t.dir === "DOWN" ? "↓" : "→"} ${t.er.toFixed(2)}` : `Loading ${m.prices.length}/${windowN() + 1}`;
+    const flag = state.pair && state.pair.sym === sym ? "TRADING" : pick && pick.sym === sym ? "BEST" : t && t.er >= minTrend() ? "TREND" : "…";
+    if (r.shown !== text) { r.info.textContent = text; r.shown = text; }
+    if (r.flag !== flag) { r.badge.textContent = flag; r.badge.className = "badge " + (flag === "…" ? "no" : "ok"); r.flag = flag; }
+  });
+}
+
+/* ---------- bot control ---------- */
+function readConfig() {
+  const c = {
+    stake: Number($("stake").value), takeProfit: Number($("takeProfit").value),
+    stopLoss: Number($("stopLoss").value), multiplier: Number($("multiplier").value),
+    maxSteps: Number($("maxSteps").value), targetWins: Number($("targetWins").value || 0),
+    martingale: $("martingaleEnabled").checked
+  };
+  const ok = c.stake >= 0.35 && c.takeProfit > 0 && c.stopLoss > 0 && c.multiplier >= 1 &&
+    Number.isInteger(c.maxSteps) && c.maxSteps >= 0 && Number.isInteger(c.targetWins) && c.targetWins >= 0;
+  return ok ? c : null;
+}
+function getConfig() {
+  const c = readConfig();
+  if (c) state.lastCfg = c;
+  return state.lastCfg;
+}
+async function requestWakeLock() {
+  try {
+    if ("wakeLock" in navigator && !state.wakeLock) {
+      state.wakeLock = await navigator.wakeLock.request("screen");
+      state.wakeLock.addEventListener("release", () => { state.wakeLock = null; });
+    }
+  } catch (_) { /* unavailable */ }
+}
+function stopBot(msg = "Bot stopped.", type = "") {
+  try { if (state.wakeLock) state.wakeLock.release(); } catch (_) { /* ignore */ }
+  state.wakeLock = null;
+  state.running = false;
+  refreshButtons();
+  showMessage(msg, type);
+}
+function startBot() {
+  if (!state.tradingReady || !state.account) { showMessage("Press Connect Account first.", "error"); return; }
+  if (!state.selected.length) { showMessage("Select at least one market.", "error"); return; }
+  const cfg = readConfig();
+  if (!cfg) { showMessage("Check your settings. Minimum stake is 0.35.", "error"); return; }
+  Object.assign(state, { step: 0, stepBase: 0, tradeLog: [], trades: 0, wins: 0, profit: 0, lastCfg: cfg, running: true, cooldownUntil: 0 });
+  requestWakeLock();
+  updateStats();
+  refreshButtons();
+  showMessage(`Scanning ${state.selected.length} market(s) for a trend of ${minTrend()} or more…`, "success");
+  if (!state.pair) tryHedge();   // go straight away if a market is already trending
+}
+const stakeFor = (cfg) => (cfg.martingale ? round2(cfg.stake * Math.pow(cfg.multiplier, state.step)) : round2(cfg.stake));
+
+/* Martingale on the PAIR: a profitable pair resets, a losing pair multiplies the stake (up to the max steps). */
+function nextStep(step, won, c) { return won || !c || !c.martingale || step >= c.maxSteps ? 0 : step + 1; }
+function recomputeStep() {
+  const c = getConfig();
+  let step = state.stepBase;
+  state.tradeLog.forEach((t) => { step = nextStep(step, t.won, c); });
+  state.step = step;
+}
+function logPair(won) {
+  state.tradeLog.push({ won });
+  if (state.tradeLog.length > 200) {
+    const old = state.tradeLog.shift();
+    state.stepBase = nextStep(state.stepBase, old.won, getConfig());
+  }
+  recomputeStep();
+}
+function restartMartingale() {
+  state.tradeLog = [];
+  state.stepBase = 0;
+  state.step = 0;
+}
+function checkLimits() {
+  const cfg = getConfig();
+  if (!cfg) return false;
+  const profit = round2(state.profit);
+  if (cfg.targetWins > 0 && state.wins >= cfg.targetWins) { stopBot(`Win target reached (${state.wins} wins). Bot stopped.`, "success"); return true; }
+  if (profit >= cfg.takeProfit) { stopBot(`Take profit reached (${money(profit)}). Bot stopped.`, "success"); return true; }
+  if (profit <= -cfg.stopLoss) { stopBot(`Stop loss reached (${money(profit)}). Bot stopped.`, "error"); return true; }
+  return false;
+}
+
+/* ---------- the hedge: Only Ups + Only Downs at the same moment ---------- */
+function sendTo(socket, payload) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify(payload));
+  return true;
+}
+function placeLeg(pair, kind) {
+  state.reqSeq += 1;
+  const reqId = 100000 + state.reqSeq;
+  const leg = { reqId, pairId: pair.id, kind, stake: pair.stake, symbol: pair.sym, settled: false };
+  const sent = sendTo(state.tradeSocket, {
+    buy: 1, price: pair.stake,
+    parameters: {
+      amount: pair.stake, basis: "stake", contract_type: kind,
+      currency: state.currency, duration: pair.dur, duration_unit: "t", underlying_symbol: pair.sym
+    },
+    req_id: reqId
+  });
+  if (!sent) return null;
+  state.pendingByReq.set(reqId, leg);
+  pair.legs.push(leg);
+  return leg;
+}
+function tryHedge() {
+  if (state.pair || !state.running) return;
+  if (Date.now() < state.cooldownUntil) return;
+  if (!state.tradingReady) { showMessage("Account session reconnecting… trading resumes automatically.", "error"); return; }
+  const pick = bestTrend();
+  if (!pick) { showMessage(`Scanning ${state.selected.length} market(s)… waiting for a trend of ${minTrend()} or more.`); return; }
+  const cfg = getConfig();
+  let stake = stakeFor(cfg);
+  const bal = displayBalance();
+  if (bal !== null && stake * 2 > bal) {
+    if (state.step > 0) { restartMartingale(); stake = stakeFor(cfg); }
+    if (stake * 2 > bal) { showMessage(`Balance ${money(bal)} is below the two stakes (${money(stake * 2)}). Waiting…`, "error"); return; }
+  }
+  state.pairSeq += 1;
+  const pair = { id: state.pairSeq, sym: pick.sym, stake, dur: ticksPer(), legs: [], expected: 0, settled: 0, pnl: 0, at: Date.now() };
+  const up = placeLeg(pair, "ONLYUPS");
+  const down = placeLeg(pair, "ONLYDOWNS");
+  pair.expected = (up ? 1 : 0) + (down ? 1 : 0);
+  if (!pair.expected) { showMessage("Account session is not open. Reconnecting…", "error"); return; }
+  state.pair = pair;
+  state.trades += 1;
+  updateStats();
+  updateBalance();
+  showMessage(`${NAME[pick.sym]} is trending ${pick.dir === "UP" ? "up" : pick.dir === "DOWN" ? "down" : "sideways"} (${pick.er.toFixed(2)}). Only Ups + Only Downs, ${pair.dur} ticks, ${money(stake)} each${state.step ? ` · martingale step ${state.step}` : ""}.`);
+  ui(() => { $("lastDigit").textContent = pick.dir === "UP" ? "↑" : pick.dir === "DOWN" ? "↓" : "→"; $("lastDigitType").textContent = NAME[pick.sym]; });
+}
+function legGone(leg, text, moneyIssue) {
+  state.pendingByReq.delete(leg.reqId);
+  const pair = state.pair;
+  if (!pair || pair.id !== leg.pairId) return;
+  pair.expected -= 1;
+  if (moneyIssue) restartMartingale();
+  if (pair.expected <= 0) {                 // nothing was bought: wait a moment so a bad request is not repeated every tick
+    state.pair = null;
+    state.cooldownUntil = Date.now() + 5000;
+    showMessage("Trade rejected: " + text + " Trying again in 5 seconds.", "error");
+    return;
+  }
+  showMessage("One contract was rejected: " + text, "error");
+  maybeFinish(pair);
+}
+function maybeFinish(pair) {
+  if (state.pair !== pair || pair.settled < pair.expected) return;
+  const won = pair.pnl > 0;
+  if (won) state.wins += 1;
+  state.history.push({ time: new Date().toLocaleTimeString(), symbol: pair.sym, dur: pair.dur, stake: round2(pair.stake * pair.expected), result: won ? "WIN" : "LOSS", pnl: round2(pair.pnl) });
+  if (state.history.length > 300) state.history.shift();
+  logPair(won);
+  state.pair = null;
+  updateStats();
+  updateBalance();
+  const row = state.history[state.history.length - 1];
+  ui(() => addHistoryRow(row));
+  if (state.running && !checkLimits()) {
+    showMessage(`${won ? "WIN" : "LOSS"} ${money(row.pnl)}. Scanning for the next trend…`, won ? "success" : "error");
+    tryHedge();
+  }
+}
+function settleLeg(leg, poc) {
+  let pnl = Number(poc.profit);
+  if (!Number.isFinite(pnl)) pnl = Number(poc.sell_price || 0) - Number(poc.buy_price || leg.stake);
+  pnl = round2(pnl);
+  leg.settled = true;
+  state.byContract.delete(leg.contractId);
+  state.profit = round2(state.profit + pnl);       // money moves the moment a contract ends
+  updateStats();
+  updateBalance();
+  const pair = state.pair;
+  if (!pair || pair.id !== leg.pairId) return;
+  pair.pnl += pnl;
+  pair.settled += 1;
+  maybeFinish(pair);
+}
+
+/* ---------- ticks ---------- */
+function handleTick(tick) {
+  const sym = tick.symbol;
+  if (!sym || !state.selected.includes(sym)) return;
+  const epoch = Number(tick.epoch);
+  const m = mkOf(sym);
+  if (Number.isFinite(epoch)) {
+    if (epoch <= m.last) return;            // same tick from the other connection
+    m.last = epoch;
+  }
+  const price = Number(tick.quote);
+  if (!Number.isFinite(price)) return;
+  state.lastAnyTick = Date.now();
+  if (m.hist) addPrice(m, price);
+  if (!m.hist || m.refreshing) m.pending.push({ p: price, epoch });
+  if (state.running && !state.pair && !checkLimits()) tryHedge();
+  scheduleRender();
+}
+function handleHistory(data) {
+  const sym = state.histReq.get(data.req_id);
+  if (!sym) return;
+  state.histReq.delete(data.req_id);
+  const m = mkOf(sym);
+  const prices = (data.history?.prices || []).map(Number).filter(Number.isFinite);
+  const times = data.history?.times || [];
+  m.prices = [];
+  prices.forEach((p) => addPrice(m, p));
+  const lastT = Number(times[times.length - 1]) || 0;
+  m.last = Math.max(m.last, lastT);
+  m.pending.forEach((t) => { if (t.epoch > lastT) addPrice(m, t.p); });
+  m.pending = [];
+  m.hist = true;
+  m.refreshing = false;
+  if (state.running && !state.pair) tryHedge();
+  scheduleRender();
+}
+function subscribeTicks(socket) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  sendTo(socket, { forget_all: "ticks" });
+  state.selected.forEach((s, i) => sendTo(socket, { ticks: s, subscribe: 1, req_id: 4000 + i }));
+}
+function requestMissingHistory() {
+  if (!state.pub || state.pub.readyState !== WebSocket.OPEN) return;
+  state.selected.forEach((s) => {
+    const m = mkOf(s);
+    if (m.asked || (m.hist && !m.refreshing)) return;
+    m.asked = true;
+    m.pending = [];
+    state.reqSeq += 1;
+    const id = 500000 + state.reqSeq;
+    state.histReq.set(id, s);
+    sendTo(state.pub, { ticks_history: s, end: "latest", count: windowN() + 1, style: "ticks", subscribe: 0, req_id: id });
+  });
+}
+function syncMarkets() {
+  subscribeTicks(state.pub);
+  subscribeTicks(state.tradeSocket);
+  requestMissingHistory();
+}
+
+/* ---------- public feed (ticks + history, no login) ---------- */
+function connectPublic() {
+  clearTimeout(pubTimer);
+  const socket = new WebSocket(WS_PUBLIC);
+  state.pub = socket;
+  socket.addEventListener("open", () => {
+    if (state.pub !== socket) return;
+    pubRetry = 0;
+    setStatus(true);
+    Object.values(state.mk).forEach((m) => { m.asked = false; if (m.hist) m.refreshing = true; });
+    syncMarkets();
+  });
+  socket.addEventListener("message", (ev) => {
+    if (state.pub !== socket) return;
+    let d;
+    try { d = JSON.parse(ev.data); } catch (_) { return; }
+    if (d.error) {
+      const sym = state.histReq.get(d.req_id);
+      if (sym) {            // history failed: carry on with live ticks only
+        state.histReq.delete(d.req_id);
+        const m = mkOf(sym);
+        m.hist = true; m.refreshing = false;
+        m.pending.forEach((t) => addPrice(m, t.p));
+        m.pending = [];
+      } else {
+        showMessage(d.error.message || "Market feed error.", "error");
+      }
+      return;
+    }
+    if (d.msg_type === "tick" && d.tick) handleTick(d.tick);
+    else if (d.msg_type === "history") handleHistory(d);
+  });
+  socket.addEventListener("close", () => {
+    if (state.pub !== socket) return;
+    state.pub = null;
+    setStatus(false);
+    pubRetry += 1;
+    pubTimer = setTimeout(connectPublic, Math.min(3000, 1000 * pubRetry));
+  });
+}
+
+/* ---------- account + trading session ---------- */
+const authHeaders = () => ({ Authorization: "Bearer " + state.token, "Deriv-App-ID": state.appId });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/* Retries a few times when Deriv answers 502/503/504 ("service temporarily unavailable") or the network blips. */
+async function restFetch(path, options = {}) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    let res = null;
+    try {
+      res = await fetch(REST_BASE + path, { ...options, headers: authHeaders() });
+    } catch (_) {
+      lastErr = new Error("Could not reach Deriv's account API. Check your connection. If it keeps failing, the browser may be blocking the request.");
+    }
+    if (res) {
+      let body = null;
+      try { body = await res.json(); } catch (_) { /* ignore */ }
+      if (res.ok) return body;
+      const msg = body?.errors?.[0]?.message || body?.error?.message || body?.message || "";
+      lastErr = new Error(`${res.status === 401 || res.status === 403 ? "Token or App ID rejected" : "Request failed"} (${res.status}). ${msg}`.trim());
+      if (![502, 503, 504].includes(res.status)) throw lastErr;
+      showMessage(`Deriv is busy (${res.status}). Retrying (${attempt}/4)…`, "error");
+    }
+    if (attempt < 4) await sleep(1200 * attempt);
+  }
+  throw lastErr || new Error("Request failed.");
+}
+function selectedAccount() {
+  return state.accounts.find((a) => a.account_id === $("account").value) || null;
+}
+function updateSwitch() {
+  const cur = selectedAccount();
+  const hasDemo = state.accounts.some((a) => a.account_type === "demo");
+  const hasReal = state.accounts.some((a) => a.account_type === "real");
+  $("segDemo").disabled = !hasDemo;
+  $("segReal").disabled = !hasReal;
+  $("segDemo").classList.toggle("on", !!cur && cur.account_type === "demo");
+  $("segReal").classList.toggle("on", !!cur && cur.account_type === "real");
+  $("switchHint").textContent = !state.accounts.length ? ""
+    : hasDemo && hasReal ? "Tap DEMO or REAL to switch any time. A running bot is stopped first."
+    : `No ${hasReal ? "DEMO" : "REAL"} account came back for this token. Paste the token for that account and tap Connect Account to add it.`;
+}
+function populateAccounts(keepId) {
+  const sel = $("account");
+  sel.replaceChildren();
+  state.accounts.forEach((a) => {
+    const o = document.createElement("option");
+    o.value = a.account_id;
+    o.textContent = `${a.account_type.toUpperCase()} · ${a.account_id} · ${money(a.balance, a.currency)}`;
+    sel.appendChild(o);
+  });
+  const keep = state.accounts.find((a) => a.account_id === keepId);
+  const demo = state.accounts.find((a) => a.account_type === "demo");
+  sel.value = (keep || demo || state.accounts[0]).account_id;
+  updateSwitch();
+}
+async function switchAccount(type) {
+  if (!state.accounts.length) return;
+  if (type) {
+    const target = state.accounts.find((a) => a.account_type === type);
+    if (!target) return;
+    $("account").value = target.account_id;
+  }
+  const next = selectedAccount();
+  if (!next) return;
+  if (state.account && next.account_id === state.account.account_id && state.tradingReady) { updateSwitch(); return; }
+  if (state.running) stopBot("Bot stopped to switch account.");
+  try { await connectTrading(); }
+  catch (e) { closeTradeSocket(); showMessage(e.message || "Could not switch account.", "error"); }
+  updateSwitch();
+}
+function dropUnconfirmed() {
+  const legs = [...state.pendingByReq.values()];
+  state.pendingByReq.clear();
+  legs.forEach((leg) => {
+    const pair = state.pair;
+    if (!pair || pair.id !== leg.pairId) return;
+    pair.expected -= 1;
+    if (pair.expected <= 0) state.pair = null; else maybeFinish(pair);
+  });
+}
+function closeTradeSocket(keep = false) {
+  const old = state.tradeSocket;
+  state.tradeSocket = null;
+  state.tradingReady = false;
+  dropUnconfirmed();
+  if (!keep) { state.byContract.clear(); state.pair = null; }
+  if (old) { try { old.close(); } catch (_) { /* ignore */ } }
+  refreshButtons();
+}
+function scheduleReconnect() {
+  if (!state.token) return;
+  clearTimeout(state.reconnectTimer);
+  state.reconnectCount += 1;
+  state.reconnectTimer = setTimeout(async () => {
+    if (state.tradeSocket || state.connecting) return;
+    try { await connectTrading({ auto: true }); }
+    catch (e) { showMessage((e.message || "Reconnect failed.") + " Retrying…", "error"); scheduleReconnect(); }
+  }, Math.min(1000 * state.reconnectCount, 5000));
+}
+
+function handleTradeMessage(d) {
+  if (d.msg_type === "tick" && d.tick) { handleTick(d.tick); return; }
+  if (d.msg_type === "balance" && d.balance) {
+    const v = Number(d.balance.balance);
+    if (Number.isFinite(v)) state.balance = v;
+    if (d.balance.currency) state.currency = d.balance.currency;
+    updateBalance();
+    return;
+  }
+  if (d.error) {
+    const text = d.error.message || "The trading API returned an error.";
+    const leg = state.pendingByReq.get(d.req_id ?? d.echo_req?.req_id);
+    if (leg) { legGone(leg, text, /balance|insufficient|stake|maximum/i.test(text)); return; }
+    showMessage(text, "error");
+    return;
+  }
+  if (d.msg_type === "buy" && d.buy) {
+    const leg = state.pendingByReq.get(d.req_id);
+    if (!leg) return;
+    state.pendingByReq.delete(d.req_id);
+    leg.contractId = d.buy.contract_id;
+    state.byContract.set(leg.contractId, leg);
+    const after = Number(d.buy.balance_after);
+    if (Number.isFinite(after)) { state.balance = after; updateBalance(); }
+    sendTo(state.tradeSocket, { proposal_open_contract: 1, contract_id: leg.contractId, subscribe: 1 });
+    return;
+  }
+  if (d.msg_type === "proposal_open_contract" && d.proposal_open_contract) {
+    const poc = d.proposal_open_contract;
+    const leg = state.byContract.get(poc.contract_id);
+    if (!leg || leg.settled) return;
+    if (!(poc.is_sold === 1 || poc.status === "won" || poc.status === "lost")) return;
+    if (d.subscription?.id) sendTo(state.tradeSocket, { forget: d.subscription.id });
+    settleLeg(leg, poc);
+  }
+}
+
+async function connectTrading(options = {}) {
+  const auto = Boolean(options.auto);
+  state.connecting = true;
+  try {
+    closeTradeSocket(auto);
+    const account = auto && state.account ? state.account : selectedAccount();
+    if (!account) throw new Error("Pick an account first.");
+    const cred = state.creds[account.account_id];
+    if (cred) { state.token = cred.token; state.appId = cred.appId; }
+    state.account = account;
+    state.currency = account.currency;
+    if (!auto || state.balance === null) state.balance = Number(account.balance);
+    updateBalance();
+    updateStats();
+    updateSwitch();
+    showMessage(auto ? "Reconnecting the account session… the bot keeps running."
+      : `Opening a session for ${account.account_type.toUpperCase()} account ${account.account_id}…`);
+    const body = await restFetch(`/trading/v1/options/accounts/${encodeURIComponent(account.account_id)}/otp`, { method: "POST" });
+    const url = body?.data?.url;
+    if (!url) throw new Error("Deriv did not return a session URL.");
+    const socket = new WebSocket(url);
+    state.tradeSocket = socket;
+    socket.addEventListener("open", () => {
+      if (state.tradeSocket !== socket) return;
+      state.tradingReady = true;
+      state.reconnectCount = 0;
+      refreshButtons();
+      sendTo(socket, { balance: 1, subscribe: 1, req_id: 3001 });
+      subscribeTicks(socket);
+      state.byContract.forEach((t) => {
+        if (!t.settled) sendTo(socket, { proposal_open_contract: 1, contract_id: t.contractId, subscribe: 1 });
+      });
+      showMessage(state.running ? "Account session restored. The bot is scanning."
+        : `Connected to ${account.account_type.toUpperCase()} account ${account.account_id}. Balance: ${money(state.balance)}. Press Start Bot.`, "success");
+    });
+    socket.addEventListener("message", (ev) => {
+      if (state.tradeSocket !== socket) return;
+      let d;
+      try { d = JSON.parse(ev.data); } catch (_) { return; }
+      handleTradeMessage(d);
+    });
+    socket.addEventListener("error", () => { if (state.tradeSocket === socket) showMessage("Account session error.", "error"); });
+    socket.addEventListener("close", () => {
+      if (state.tradeSocket !== socket) return;
+      state.tradeSocket = null;
+      state.tradingReady = false;
+      dropUnconfirmed();
+      refreshButtons();
+      showMessage("Account session dropped. Reconnecting…" + (state.running ? " The bot keeps running." : ""), "error");
+      scheduleReconnect();
+    });
+  } finally {
+    state.connecting = false;
+  }
+}
+
+async function connectAccount() {
+  const token = $("apiToken").value.trim();
+  const appId = $("appId").value.trim();
+  if (!token || !appId) { showMessage("Paste both your API token and your App ID.", "error"); return; }
+  if (state.running) { showMessage("Stop the bot first, then connect another account.", "error"); return; }
+  state.token = token;
+  state.appId = appId;
+  $("connectBtn").disabled = true;
+  showMessage("Fetching your accounts…");
+  try {
+    const body = await restFetch("/trading/v1/options/accounts");
+    const list = (body?.data || []).filter((a) => a.status !== "inactive");
+    if (!list.length) throw new Error("No active Options accounts found for this token.");
+    list.forEach((a) => { state.creds[a.account_id] = { token, appId }; });
+    const merged = new Map(state.accounts.map((a) => [a.account_id, a]));
+    list.forEach((a) => merged.set(a.account_id, a));
+    state.accounts = [...merged.values()];
+    const keepId = state.account && list.some((a) => a.account_id === state.account.account_id)
+      ? state.account.account_id : (list.find((a) => a.account_type === "demo") || list[0]).account_id;
+    populateAccounts(keepId);
+    await connectTrading();
+  } catch (err) {
+    closeTradeSocket();
+    showMessage(err.message || "Could not connect the account.", "error");
+  } finally {
+    $("connectBtn").disabled = false;
+  }
+}
+
+/* ---------- events + init ---------- */
+$("connectBtn").addEventListener("click", connectAccount);
+$("startBtn").addEventListener("click", startBot);
+$("stopBtn").addEventListener("click", () => stopBot("Bot stopped manually."));
+$("clearHistoryBtn").addEventListener("click", () => { state.history = []; renderHistory(); });
+$("account").addEventListener("change", () => switchAccount());
+$("segDemo").addEventListener("click", () => switchAccount("demo"));
+$("segReal").addEventListener("click", () => switchAccount("real"));
+$("trendWindow").addEventListener("change", () => {
+  Object.values(state.mk).forEach((m) => { m.asked = false; m.refreshing = true; });
+  requestMissingHistory();
+  scheduleRender();
+});
+$("minTrend").addEventListener("change", scheduleRender);
+setInterval(() => {
+  if (state.pair && Date.now() - state.pair.at > 60000) {      // a contract result never arrived
+    state.pair = null;
+    showMessage("A contract result did not arrive in time. Check your Deriv account. Scanning again.", "error");
+    if (state.running) tryHedge();
+  }
+  if (!state.running || !state.tradingReady) return;
+  if (state.lastAnyTick && Date.now() - state.lastAnyTick > 7000) {
+    state.lastAnyTick = Date.now();
+    syncMarkets();
+    showMessage("No ticks for 7 seconds. Re-subscribing to the markets…", "error");
+  }
+}, 2000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && state.running) requestWakeLock();
+});
+
+const chips = $("marketList");
+MARKETS.forEach(([sym, label]) => {
+  const wrap = document.createElement("label");
+  wrap.className = "chip";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.value = sym;
+  box.checked = true;
+  box.addEventListener("change", () => {
+    state.selected = MARKETS.map((m) => m[0]).filter((s) => {
+      const el = chips.querySelector(`input[value="${s}"]`);
+      return el && el.checked;
+    });
+    buildWatch();
+    syncMarkets();
+    refreshButtons();
+  });
+  const text = document.createElement("span");
+  text.textContent = label;
+  wrap.append(box, text);
+  chips.appendChild(wrap);
+});
+
+drawBalance();
+drawStats();
+renderHistory();
+buildWatch();
+refreshButtons();
+updateSwitch();
+showMessage("Paste your API token and App ID, then press Connect Account. The trend scan runs without logging in.");
+connectPublic();
+
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+(function () {
+  var btn = document.getElementById("installBtn");
+  var hint = document.getElementById("installHint");
+  var deferred = null;
+  var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (!btn || standalone) return;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferred = e;
+    btn.hidden = false;
+  });
+  btn.addEventListener("click", async function () {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch (_) {}
+    deferred = null;
+    btn.hidden = true;
+  });
+  window.addEventListener("appinstalled", function () { btn.hidden = true; if (hint) hint.hidden = true; });
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent) && hint) {
+    hint.textContent = "To install: tap Share, then Add to Home Screen.";
+    hint.hidden = false;
+  }
+})();
+</script>
+</body>
+</html>
