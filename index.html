@@ -645,7 +645,8 @@ footer p {
         <div id="marketList" class="chips"></div>
         <div class="form-grid">
           <label>Trend window (ticks, 5 - 200)<input id="trendWindow" type="number" min="5" max="200" step="5" value="30"></label>
-          <label>Minimum trend strength (0 - 1)<input id="minTrend" type="number" min="0" max="1" step="0.05" value="0.3"></label>
+          <label>Minimum trend strength (0 - 1)<input id="minTrend" type="number" min="0" max="1" step="0.05" value="0"></label>
+          <label>Streak ticks needed (2 - 4)<input id="streakTicks" type="number" min="2" max="4" step="1" value="3"></label>
           <label>Ticks per contract (2 - 5)<input id="ticksPer" type="number" min="2" max="5" step="1" value="2"></label>
         </div>
       </section>
@@ -657,8 +658,8 @@ footer p {
 
       <section class="stats-grid">
         <div class="stat-card"><span>Last Pick</span><strong id="lastDigit">—</strong><small id="lastDigitType">Waiting for a trend</small></div>
-        <div class="stat-card"><span>Pairs</span><strong id="totalTrades">0</strong><small>Up + Down pairs bought</small></div>
-        <div class="stat-card"><span>Wins</span><strong id="wins">0</strong><small>Profitable pairs</small></div>
+        <div class="stat-card"><span>Pairs</span><strong id="totalTrades">0</strong><small>Trades placed</small></div>
+        <div class="stat-card"><span>Wins</span><strong id="wins">0</strong><small>Winning trades</small></div>
         <div class="stat-card"><span>Net Profit/Loss</span><strong id="profitLoss">$0.00</strong><small>Session result</small></div>
       </section>
 
@@ -791,6 +792,26 @@ function ticksPer() {
   const v = parseInt($("ticksPer").value, 10);
   return Math.min(5, Math.max(2, Number.isFinite(v) ? v : 2));
 }
+function streakNeeded() {
+  const v = parseInt($("streakTicks").value, 10);
+  return Math.min(4, Math.max(2, Number.isFinite(v) ? v : 3));
+}
+/* Consecutive ticks in the same direction at the end of the price list. A flat tick ends the streak. */
+function streakOf(sym) {
+  const m = state.mk[sym];
+  if (!m || !m.hist || m.prices.length < 6) return null;
+  const p = m.prices;
+  const first = p[p.length - 1] - p[p.length - 2];
+  if (first === 0) return { dir: "FLAT", len: 0 };
+  const sign = first > 0 ? 1 : -1;
+  let len = 1;
+  for (let i = p.length - 2; i >= 1; i--) {
+    const d = p[i] - p[i - 1];
+    if (d !== 0 && (d > 0 ? 1 : -1) === sign) len++; else break;
+  }
+  return { dir: sign > 0 ? "UP" : "DOWN", len };
+}
+function streakOk(st) { return !!st && st.dir !== "FLAT" && st.len >= streakNeeded() && st.len <= 4; }
 function mkOf(sym) {
   if (!state.mk[sym]) state.mk[sym] = { prices: [], last: 0, hist: false, asked: false, refreshing: false, pending: [] };
   return state.mk[sym];
@@ -829,8 +850,9 @@ function bestTrend() {
   state.selected.forEach((sym) => {
     if (isBlocked(sym)) return;
     const t = trendOf(sym);
-    if (!t || t.er < minTrend()) return;
-    if (!pick || t.er > pick.er) pick = { sym, ...t };
+    const st = streakOf(sym);
+    if (!t || !streakOk(st) || t.er < minTrend()) return;
+    if (!pick || st.len < pick.len || (st.len === pick.len && t.er > pick.er)) pick = { sym, er: t.er, dir: st.dir, len: st.len };
   });
   return pick;
 }
@@ -863,7 +885,7 @@ function drawBalance() {
 }
 function historyRow(t) {
   const r = document.createElement("tr");
-  [t.time, `UP+DOWN · ${t.symbol} · ${t.dur}t`, money(t.stake), t.result, money(t.pnl)].forEach((v, i) => {
+  [t.time, `TREND · ${t.symbol} · ${t.dur}t`, money(t.stake), t.result, money(t.pnl)].forEach((v, i) => {
     const c = document.createElement("td");
     c.textContent = v;
     if (i >= 3) c.className = t.pnl >= 0 ? "win" : "loss";
@@ -922,8 +944,9 @@ function renderWatch() {
     if (!r) return;
     const t = trendOf(sym);
     const m = mkOf(sym);
-    const text = t ? `${t.dir === "UP" ? "↑" : t.dir === "DOWN" ? "↓" : "→"} ${t.er.toFixed(2)}` : `Loading ${m.prices.length}/${windowN() + 1}`;
-    const flag = isBlocked(sym) ? "REFUSED" : state.pair && state.pair.sym === sym ? "TRADING" : pick && pick.sym === sym ? "BEST" : t && t.er >= minTrend() ? "TREND" : "…";
+    const st = streakOf(sym);
+    const text = t ? `${t.dir === "UP" ? "↑" : t.dir === "DOWN" ? "↓" : "→"} ${t.er.toFixed(2)} · streak ${st ? (st.dir === "UP" ? "↑" : st.dir === "DOWN" ? "↓" : "") + st.len : 0}` : `Loading ${m.prices.length}/${windowN() + 1}`;
+    const flag = isBlocked(sym) ? "REFUSED" : state.pair && state.pair.sym === sym ? "TRADING" : pick && pick.sym === sym ? "BEST" : t && streakOk(st) ? "TREND" : "…";
     if (r.shown !== text) { r.info.textContent = text; r.shown = text; }
     if (r.flag !== flag) { r.badge.textContent = flag; r.badge.className = "badge " + (flag === "…" || flag === "REFUSED" ? "no" : "ok"); r.flag = flag; }
   });
@@ -970,7 +993,7 @@ function startBot() {
   requestWakeLock();
   updateStats();
   refreshButtons();
-  showMessage(`Scanning ${state.selected.length} market(s) for a trend of ${minTrend()} or more…`, "success");
+  showMessage(`Scanning ${state.selected.length} market(s) for a ${streakNeeded()}-tick streak…`, "success");
   if (!state.pair) tryHedge();   // go straight away if a market is already trending
 }
 const stakeFor = (cfg) => (cfg.martingale ? round2(cfg.stake * Math.pow(cfg.multiplier, state.step)) : round2(cfg.stake));
@@ -1034,23 +1057,22 @@ function tryHedge() {
   if (Date.now() < state.cooldownUntil) return;
   if (!state.tradingReady) { showMessage("Account session reconnecting… trading resumes automatically.", "error"); return; }
   const pick = bestTrend();
-  if (!pick) { showMessage(`Scanning ${state.selected.length} market(s)… waiting for a trend of ${minTrend()} or more.`); return; }
+  if (!pick) { showMessage(`Scanning ${state.selected.length} market(s)… waiting for a ${streakNeeded()}-tick streak (no longer than 4).`); return; }
   const cfg = getConfig();
   let stake = stakeFor(cfg);
   const bal = displayBalance();
-  if (bal !== null && stake * 2 > bal) {
+  if (bal !== null && stake > bal) {
     if (state.step > 0) { restartMartingale(); stake = stakeFor(cfg); }
-    if (stake * 2 > bal) { showMessage(`Balance ${money(bal)} is below the two stakes (${money(stake * 2)}). Waiting…`, "error"); return; }
+    if (stake > bal) { showMessage(`Balance ${money(bal)} is below the stake (${money(stake)}). Waiting…`, "error"); return; }
   }
   state.pairSeq += 1;
   const pair = { id: state.pairSeq, sym: pick.sym, stake, dur: ticksPer(), legs: [], expected: 0, settled: 0, pnl: 0, at: Date.now() };
-  const up = placeLeg(pair, TYPES[typeSet][0]);
-  const down = placeLeg(pair, TYPES[typeSet][1]);
-  pair.expected = (up ? 1 : 0) + (down ? 1 : 0);
+  const leg = placeLeg(pair, pick.dir === "UP" ? TYPES[typeSet][0] : TYPES[typeSet][1]);
+  pair.expected = leg ? 1 : 0;
   if (!pair.expected) { showMessage("Account session is not open. Reconnecting…", "error"); return; }
   state.pair = pair;
   updateBalance();
-  showMessage(`${NAME[pick.sym]} is trending ${pick.dir === "UP" ? "up" : pick.dir === "DOWN" ? "down" : "sideways"} (${pick.er.toFixed(2)}). Only Ups + Only Downs, ${pair.dur} ticks, ${money(stake)} each${state.step ? ` · martingale step ${state.step}` : ""}.`);
+  showMessage(`${NAME[pick.sym]} is trending ${pick.dir === "UP" ? "up" : pick.dir === "DOWN" ? "down" : "sideways"} (${pick.er.toFixed(2)}). ${pick.dir === "UP" ? "Only Ups" : "Only Downs"} only (no hedge), ${pair.dur} ticks, ${money(stake)}${state.step ? ` · martingale step ${state.step}` : ""}.`);
   ui(() => { $("lastDigit").textContent = pick.dir === "UP" ? "↑" : pick.dir === "DOWN" ? "↓" : "→"; $("lastDigitType").textContent = NAME[pick.sym]; });
 }
 function legGone(leg, text, moneyIssue) {
@@ -1469,6 +1491,7 @@ $("trendWindow").addEventListener("change", () => {
   scheduleRender();
 });
 $("minTrend").addEventListener("change", scheduleRender);
+$("streakTicks").addEventListener("change", scheduleRender);
 setInterval(() => {
   if (state.pair && Date.now() - state.pair.at > 60000) {      // a contract result never arrived
     state.pair = null;
